@@ -212,55 +212,6 @@ void PrintData(const u_char * packet, int size)
         }
 }
 
-void process_packet(u_char *handle, const struct pcap_pkthdr *header, const u_char *packet)
-{
-            int size = header->len;
-            struct iphdr *iph = (struct iphdr*)(packet+sizeof(struct ethhdr));
-            ++total;
-
-            switch (iph->protocol)
-            {
-                        case IPPROTO_IP:
-                            break;
-                        case IPPROTO_EGP:
-                            break;
-
-                        case IPPROTO_ICMP:
-                                        ++icmpp;
-
-                            break;
-                        case IPPROTO_IGMP:
-                                        ++igmp;
-
-                            break;
-
-                        case IPPROTO_TCP:
-                                          ++tcp;
-                            print_tcp_packet(packet, size);
-                            break;
-                       case IPPROTO_UDP:
-                                            ++udp;
-                            print_udp_packet(packet, size);
-
-                            break;
-
-                        case IPPROTO_GRE:
-                            break;
-                        case IPPROTO_SCTP :
-                                ++stcp;
-                        break;
-
-                        case IPPROTO_RAW:
-                            ++raw;
-                            break;
-
-                        default:
-                                            ++others;
-                break;
-            }
-    fprintf(stderr, "TCP : %d   UDP : %d    ICMP : %d   IGMP : %d STCP : %d  Raw :  %d   Others : %d  Total : %d\r", tcp, udp, icmpp, igmp, stcp, raw, others, total);
-}
-
 void processPacket(u_char * packet, int size)
 {
 
@@ -308,59 +259,8 @@ void processPacket(u_char * packet, int size)
         break;
     }
 fprintf(stderr, "TCP : %d   UDP : %d    ICMP : %d   IGMP : %d STCP : %d  Raw :  %d   Others : %d  Total : %d\r", tcp, udp, icmpp, igmp, stcp, raw, others, total);
-
 }
-/*
-void initSniffer(void)
-{
-    pcap_if_t *alldevsp, *devices;
-    char errbuf[100], devs[100][100], *devname;
-    int count = 1, n;
-    pcap_t *handle;
 
-    if(pcap_findalldevs( &alldevsp, errbuf))
-    {
-        fprintf(stderr, "Error finding devices... \n");
-        exit(1);
-    }
-    fprintf(stderr, "Done.\n");
-
-    for(devices = alldevsp ; devices != NULL ; devices = devices->next)
-    {
-        fprintf(stderr, "%d. %s - %s \n", count, devices->name, devices->description);
-        if(devices->name )
-        {
-            strcpy(devs[count], devices->name);
-        }
-        count++;
-    }
-
-    //Ask user which device to sniff
-    printf("Enter the number of the device you want to sniff : ");
-    scanf("%d" , &n);
-    devname = devs[n];
-
-    //Open the device for sniffing
-    printf("Opening device %s for sniffing ... " , devname);
-    handle = pcap_open_live(devname,65536, 1,0,errbuf);
-
-    if(!handle)
-    {
-        fprintf(stderr, "Could not open device %s : %s\n", devname, errbuf);
-        exit(1);
-    }
-
-    printf("Done\n");
-
-    logfile = fopen("log.txt", "w");
-    if(!logfile)
-    {
-        fprintf(stderr, "Unable to create logfile\n");
-    }
-
-    pcap_loop(handle, -1, process_packet, NULL);
-}
-*/
 void initSnifferRaw(void)
 {
                 int saddr_size, data_size;
