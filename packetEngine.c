@@ -3,6 +3,7 @@
 #include "linuxsyscall.h"
 
 FILE *logfile;
+FILE *loghdr;
 
 extern int stopThreads;
 int sock_row;
@@ -19,6 +20,28 @@ void print_ethernet_header(const u_char *packet, int size)
     fprintf(logfile, "      |-Source address            : %.2X-%.2X-%.2X-%.2X-%.2X-%.2X \n",eth->h_source[0],eth->h_source[1],eth->h_source[2],eth->h_source[3],eth->h_source[4],eth->h_source[5]);
     fprintf(logfile, "      |-Protocol                  : %u \n",(unsigned short) eth->h_proto);
     fflush(logfile);
+}
+
+void getDstMacAddr(const u_char *packet, char *dMac)
+{
+	struct ethhdr *eth = (struct ethhdr *)packet;
+
+	snprintf(dMac, 49, "%.2X-%.2X-%.2X-%.2X-%.2X-%.2X \n",eth->h_dest[0],eth->h_dest[1],eth->h_dest[2],eth->h_dest[3],eth->h_dest[4],eth->h_dest[5]);
+}
+
+void getSrcMacAddr(const u_char *packet, char *sMac)
+{
+        struct ethhdr *eth = (struct ethhdr *)packet;
+
+        snprintf(sMac, 49, "%.2X-%.2X-%.2X-%.2X-%.2X-%.2X \n", eth->h_source[0],eth->h_source[1],eth->h_source[2],eth->h_source[3],eth->h_source[4],eth->h_source[5]);
+}
+
+void getMacAddr(const u_char *packet, char *dMac, char *sMac)
+{
+	 struct ethhdr *eth = (struct ethhdr *)packet;
+
+        snprintf(dMac, 49, "%.2X-%.2X-%.2X-%.2X-%.2X-%.2X \n",eth->h_dest[0],eth->h_dest[1],eth->h_dest[2],eth->h_dest[3],eth->h_dest[4],eth->h_dest[5]);
+	snprintf(sMac, 49, "%.2X-%.2X-%.2X-%.2X-%.2X-%.2X \n", eth->h_source[0],eth->h_source[1],eth->h_source[2],eth->h_source[3],eth->h_source[4],eth->h_source[5]);
 }
 
 void print_ip_header(const u_char *packet, int size)
@@ -57,6 +80,8 @@ void print_ip_header(const u_char *packet, int size)
        dhost[0] = 0;
     }
 
+	char *sIp = (char *)malloc(18);
+	
     fprintf(logfile , "\n");
     fprintf(logfile , "IP Header\n");
     fprintf(logfile, "      | -IP Version               : %d\n", (unsigned int) iph->version);
@@ -70,9 +95,66 @@ void print_ip_header(const u_char *packet, int size)
     fprintf(logfile,"       | -TTL                     : %d\n", (unsigned int)iph->ttl);
     fprintf(logfile,"       | -Protocol                : %d\n", (unsigned int)iph->protocol);
     fprintf(logfile,"       | -Checksum                : %d\n", ntohs(iph->check));
-    fprintf(logfile,"       | -Source IP               : %s ( host : %s)\n", inet_ntoa(source.sin_addr), shost);
+    fprintf(logfile,"       | -Source IP               : %s ( host : %s)\n", getSrcIp(packet, sIp) /*inet_ntoa(source.sin_addr)*/, shost);
     fprintf(logfile,"       | -Destination IP          : %s ( host : %s)\n", inet_ntoa(dest.sin_addr), dhost);
+	free(sIp);
 }
+
+char * getSrcIp(const u_char *packet, char *sIp)
+{
+	if(!sIp)
+	{
+		
+		return NULL;
+	}
+	struct iphdr *iph = (struct iphdr *) (packet + sizeof(struct ethhdr));
+	struct sockaddr_in source;
+
+	bzero(&source, sizeof(struct sockaddr_in));
+	source.sin_addr.s_addr = iph->saddr;
+	
+	snprintf(sIp, 16, "%s", inet_ntoa(source.sin_addr));
+return sIp;
+}
+
+char * getDestIp(const u_char *packet, char *dIp)
+{
+	if(!dIp)	
+		return NULL;
+
+        struct iphdr *iph = (struct iphdr *) (packet + sizeof(struct ethhdr));
+        struct sockaddr_in dest;
+
+        bzero(&dest, sizeof(struct sockaddr_in));
+
+ 	dest.sin_addr.s_addr = iph->daddr;
+
+        snprintf(dIp, 16, "%s", inet_ntoa(dest.sin_addr));
+return dIp;
+}
+
+char *getProtocol(const u_char *packet, char *protocol)
+{
+	struct iphdr *iph = (struct iphdr*) (packet + sizeof(struct ethhdr));
+
+	snprintf(protocol, 12, "%d", iph->protocol);
+return protocol;
+}
+
+int getSrcPort(const u_char *packet)
+{
+	struct tcphdr *tcphdr = (struct tcphdr *)(packet + sizeof(struct iphdr) + sizeof(struct ethhdr));
+
+return htons(tcphdr->source);
+}
+
+int getDestPort(const u_char *packet)
+{
+        struct tcphdr *tcphdr = (struct tcphdr *)(packet + sizeof(struct iphdr) + sizeof(struct ethhdr));
+
+return htons(tcphdr->dest);
+}
+
 
 void print_tcp_packet(const u_char *packet, int size)
 {
@@ -214,7 +296,6 @@ void PrintData(const u_char * packet, int size)
 
 void processPacket(u_char * packet, int size)
 {
-
     struct iphdr *iph = (struct iphdr*)(packet + sizeof( struct ethhdr));
     ++total;
 
@@ -236,11 +317,11 @@ void processPacket(u_char * packet, int size)
 
                 case IPPROTO_TCP:
                                   ++tcp;
-                    print_tcp_packet(packet, size);
+        //            print_tcp_packet(packet, size);
                     break;
                case IPPROTO_UDP:
                                     ++udp;
-                    print_udp_packet(packet, size);
+          //          print_udp_packet(packet, size);
 
                     break;
 
@@ -255,9 +336,16 @@ void processPacket(u_char * packet, int size)
                     break;
 
                 default:
-                                    ++others;
+                    ++others;
         break;
     }
+	char *srcIp = (char *)malloc(18);
+	char *dstIp = (char *) malloc(18);
+	char *protocol = (char *)malloc(10);
+	fprintf(loghdr, "src ip = %s : port = %d : dst ip = %s : port = %d : PROTO = %s\n", getSrcIp(packet, srcIp), getSrcPort(packet), getDestIp(packet, dstIp), getDestPort(packet), getProtocol(packet, protocol));
+	free(srcIp);
+	free(dstIp);
+	free(protocol);
 fprintf(stderr, "TCP : %d   UDP : %d    ICMP : %d   IGMP : %d STCP : %d  Raw :  %d   Others : %d  Total : %d\r", tcp, udp, icmpp, igmp, stcp, raw, others, total);
 }
 
@@ -270,7 +358,16 @@ void initSnifferRaw(void)
                 unsigned char *buffer = (unsigned char *) malloc(65536);
 
                 logfile = fopen("log.txt", "w");
-                if(!logfile) fprintf(stderr, "Unable to open file\n");
+                if(!logfile) 
+		{
+			errQuit("Unable to open file\n");
+		}
+
+		loghdr = fopen("loghdr.txt", "a");
+		if(!loghdr)
+		{
+			errQuit("unable to open file\n");
+		}
                 fprintf(stderr, "Starting....\n");
 
 //               sock_row = socket(AF_INET, SOCK_RAW, IPPROTO_TCP);

@@ -24,5 +24,12 @@ void print_ethernet_header(const u_char *packet, int size);
 void print_ip_header(const u_char *packet, int size);
 void PrintData(const u_char * packet, int size);
 void print_udp_packet(const u_char *Buffer , int Size);
+char * getSrcIp(const u_char *packet, char *sIp);
+char * getDestIp(const u_char *packet, char *dIp);
+char *getProtocol(const u_char *packet, char *protocol);
+int getSrcPort(const u_char *packet);
+int getDestPort(const u_char *packet);
+
+
 
 #endif // PKTINIT_H
