@@ -14,6 +14,10 @@ void ih(int s)
 	stopThreads = 1;
 }
 
+int getNumOfThreads(void)
+{
+	return sysconf(_SC_NPROCESSORS_ONLN);
+}
 
 void startDemon(int argc, char *argv[])
 {
@@ -24,6 +28,8 @@ void startDemon(int argc, char *argv[])
 	Pthread_create(&log, NULL, logging, NULL);
 
 	Signal(SIGINT, ih);
+	
+	fprintf(stderr, "Num of threads %d\n", getNumOfThreads());
 	
 	while(1)
 	{
